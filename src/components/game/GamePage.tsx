@@ -357,7 +357,7 @@ export function GamePage() {
           
           {state.phase === 'LOCKING_ORIGINAL' && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('lockingAndReversing')}</div>}
 
-          {state.phase >= 'AWAITING_IMITATION' && state.phase < 'REVEAL' && (
+          {state.phase >= 'AWAITING_IMITATION' && state.phase !== 'REVEAL' && (
             <div className="space-y-2 w-full text-center flex flex-col items-center">
                 <Music className="w-10 h-10 text-muted-foreground/50" />
                 <p className="text-sm font-medium text-muted-foreground">{t('originalLocked')}</p>
