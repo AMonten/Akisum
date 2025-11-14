@@ -32,6 +32,13 @@ export const translations = {
     micRequiredDescription: 'Please allow microphone access in your browser settings to play.',
     errorTitle: 'Error',
     errorReversing: 'Could not reverse audio.',
+    gameSettings: 'Game Settings',
+    gameSettingsDescription: 'Adjust the rules for your game session.',
+    timeLimit: 'Time Limit',
+    timeLimitDescription: 'Max recording duration for clips.',
+    repetitions: 'Repetitions',
+    repetitionsDescription: 'Max playbacks of reversed audio for the imitator.',
+    gameMode: 'Game Mode',
   },
   es: {
     subtitle: 'El juego de adivinar música al revés',
@@ -66,6 +73,13 @@ export const translations = {
     micRequiredDescription: 'Por favor, permite el acceso al micrófono en la configuración de tu navegador para jugar.',
     errorTitle: 'Error',
     errorReversing: 'No se pudo invertir el audio.',
+    gameSettings: 'Configuración del Juego',
+    gameSettingsDescription: 'Ajusta las reglas para tu sesión de juego.',
+    timeLimit: 'Límite de Tiempo',
+    timeLimitDescription: 'Duración máxima de grabación para los clips.',
+    repetitions: 'Repeticiones',
+    repetitionsDescription: 'Máximas reproducciones del audio invertido para el imitador.',
+    gameMode: 'Modo de Juego',
   },
 };
 
