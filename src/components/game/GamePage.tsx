@@ -4,12 +4,14 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, Mic, RefreshCw, Settings, Square, ThumbsDown, ThumbsUp, Unlock } from 'lucide-react';
+import { Loader2, Lock, Mic, RefreshCw, Square, ThumbsDown, ThumbsUp, Unlock } from 'lucide-react';
 import { PlayerPanel } from './PlayerPanel';
 import { Scoreboard } from './Scoreboard';
 import { AudioPlayer } from './AudioPlayer';
 import { SettingsDialog } from './SettingsDialog';
 import { Logo } from '../icons/Logo';
+import { useI18n } from '@/hooks/use-i18n';
+import { LanguageToggle } from './LanguageToggle';
 
 const RECORDING_DURATION = 6; // seconds
 
@@ -92,12 +94,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
     case 'NEXT_ROUND':
       return {
-        ...state,
-        phase: 'IDLE',
-        originalAudioUrl: null,
-        reversedOriginalAudioUrl: null,
-        imitationAudioUrl: null,
-        reversedImitationAudioUrl: null,
+        ...initialState,
+        p1Score: state.p1Score,
+        p2Score: state.p2Score,
       };
     default:
       return state;
@@ -123,7 +122,6 @@ async function reverseAudio(audioUrl: string): Promise<string> {
     reversedChannelData.set(channelData.slice().reverse());
   }
   
-  // This is a simplified way to get a WAV blob. A more robust solution might be needed.
   const writeString = (view: DataView, offset: number, string: string) => {
     for (let i = 0; i < string.length; i++) {
       view.setUint8(offset + i, string.charCodeAt(i));
@@ -178,6 +176,7 @@ async function reverseAudio(audioUrl: string): Promise<string> {
 export function GamePage() {
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const { toast } = useToast();
+  const { t } = useI18n();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -187,17 +186,21 @@ export function GamePage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const canRecord = state.phase === 'IDLE' || state.phase === 'PREVIEW_ORIGINAL' || state.phase === 'AWAITING_IMITATION' || state.phase === 'PREVIEW_IMITATION';
-  const isP1Turn = state.phase === 'IDLE' || state.phase === 'RECORDING_ORIGINAL' || state.phase === 'PREVIEW_ORIGINAL';
+  const isP1Turn = state.phase === 'IDLE' || state.phase === 'RECORDING_ORIGINAL' || state.phase === 'PREVIEW_ORIGINAL' || state.phase === 'REQUESTING_PERMISSION';
   const isP2Turn = state.phase === 'AWAITING_IMITATION' || state.phase === 'RECORDING_IMITATION' || state.phase === 'PREVIEW_IMITATION';
 
   const requestMicrophone = async () => {
-    if (state.phase !== 'IDLE') return;
-    dispatch({ type: 'START_GAME' });
+    if (state.phase !== 'IDLE' && state.phase !== 'AWAITING_IMITATION' && state.phase !== 'PREVIEW_IMITATION' && state.phase !== 'PREVIEW_ORIGINAL') return;
+    
+    if (state.phase === 'IDLE') {
+        dispatch({ type: 'START_GAME' });
+    }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+      if (!streamRef.current) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+      }
       if (isP1Turn) {
         dispatch({ type: 'START_RECORDING_ORIGINAL' });
       } else if (isP2Turn) {
@@ -207,8 +210,8 @@ export function GamePage() {
       console.error("Microphone access denied:", error);
       toast({
         variant: "destructive",
-        title: "Microphone Required",
-        description: "Please allow microphone access in your browser settings to play.",
+        title: t('micRequiredTitle'),
+        description: t('micRequiredDescription'),
       });
       dispatch({ type: 'PERMISSION_DENIED' });
     }
@@ -244,11 +247,12 @@ export function GamePage() {
       
       timerIntervalRef.current = setInterval(() => {
         setRecordingTime(prev => {
-          if (prev + 1 >= RECORDING_DURATION) {
+          const newTime = prev + 1;
+          if (newTime >= RECORDING_DURATION) {
             stopRecording();
             return RECORDING_DURATION;
           }
-          return prev + 1;
+          return newTime;
         });
       }, 1000);
     }
@@ -260,6 +264,7 @@ export function GamePage() {
     }
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
     }
     setIsRecording(false);
   };
@@ -272,8 +277,8 @@ export function GamePage() {
         dispatch({ type: 'REVERSE_ORIGINAL_SUCCESS', payload: reversedUrl });
       } catch (error) {
         console.error("Failed to reverse audio:", error);
-        toast({ title: "Error", description: "Could not reverse audio."});
-        dispatch({ type: 'NEXT_ROUND' }); // Reset on error
+        toast({ title: t('errorTitle'), description: t('errorReversing')});
+        dispatch({ type: 'NEXT_ROUND' });
       }
     }
   }
@@ -286,8 +291,8 @@ export function GamePage() {
         dispatch({ type: 'REVERSE_IMITATION_SUCCESS', payload: reversedUrl });
       } catch (error) {
         console.error("Failed to reverse audio:", error);
-        toast({ title: "Error", description: "Could not reverse audio."});
-        dispatch({ type: 'NEXT_ROUND' }); // Reset on error
+        toast({ title: t('errorTitle'), description: t('errorReversing')});
+        dispatch({ type: 'NEXT_ROUND' });
       }
     }
   }
@@ -296,14 +301,12 @@ export function GamePage() {
     if (isRecording) {
       stopRecording();
     } else {
-      if (state.phase === 'IDLE') {
-        requestMicrophone();
-      } else if (state.phase === 'PREVIEW_ORIGINAL') {
-        dispatch({ type: 'START_RECORDING_ORIGINAL' });
-      } else if (state.phase === 'AWAITING_IMITATION' || state.phase === 'PREVIEW_IMITATION') {
-        dispatch({ type: 'START_RECORDING_IMITATION' });
-      }
+      requestMicrophone();
     }
+  }
+
+  const handleNewGame = () => {
+    dispatch({type: 'NEXT_ROUND'});
   }
 
   return (
@@ -313,93 +316,94 @@ export function GamePage() {
           <Logo className="h-16 w-16" />
           <h1 className="font-headline text-5xl font-bold tracking-tighter sm:text-6xl md:text-7xl">Akisum Duet</h1>
         </div>
-        <p className="mt-2 text-lg text-muted-foreground">The Reverse Music Guessing Game</p>
+        <p className="mt-2 text-lg text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="mb-8 flex w-full max-w-4xl items-center justify-between">
         <Scoreboard p1Score={state.p1Score} p2Score={state.p2Score} />
         <div className="flex items-center gap-2">
-           <Button variant="outline" onClick={() => dispatch({ type: 'NEXT_ROUND' })}>
-            <RefreshCw className="mr-2 h-4 w-4" /> New Game
+           <Button variant="outline" onClick={handleNewGame}>
+            <RefreshCw className="mr-2 h-4 w-4" /> {t('newGame')}
           </Button>
           <SettingsDialog />
+          <LanguageToggle />
         </div>
       </div>
 
       <div className="grid w-full max-w-4xl grid-cols-1 gap-8 md:grid-cols-2">
-        <PlayerPanel title="Player A: Challenger" isActive={isP1Turn}>
-          {state.phase === 'IDLE' && <Button onClick={handleRecordButton} size="lg" className="w-full bg-accent hover:bg-accent/90"><Mic className="mr-2" /> Record Song Fragment</Button>}
-          {state.phase === 'PERMISSION_DENIED' && <p className="text-destructive">Microphone access was denied. Please enable it to play.</p>}
-          {state.phase === 'REQUESTING_PERMISSION' && isP1Turn && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Requesting mic...</div>}
+        <PlayerPanel title={t('playerA')} isActive={isP1Turn}>
+          {state.phase === 'IDLE' && <Button onClick={handleRecordButton} size="lg" className="w-full bg-accent hover:bg-accent/90"><Mic className="mr-2" /> {t('recordSongFragment')}</Button>}
+          {state.phase === 'PERMISSION_DENIED' && <p className="text-destructive">{t('micPermissionDenied')}</p>}
+          {(state.phase === 'REQUESTING_PERMISSION' && isP1Turn) && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('requestingMic')}</div>}
 
           {(state.phase === 'RECORDING_ORIGINAL' || (isRecording && isP1Turn)) && (
              <div className="flex w-full flex-col items-center gap-4">
               <Button onClick={stopRecording} variant="destructive" size="lg" className="w-full">
-                <Square className="mr-2" /> Stop Recording
+                <Square className="mr-2" /> {t('stopRecording')}
               </Button>
               <div className="font-mono text-lg text-primary">{recordingTime}s / {RECORDING_DURATION}s</div>
             </div>
           )}
 
           {state.phase === 'PREVIEW_ORIGINAL' && state.originalAudioUrl && (
-            <div className="space-y-4">
-              <AudioPlayer src={state.originalAudioUrl} title="Your Recording" />
+            <div className="space-y-4 w-full">
+              <AudioPlayer src={state.originalAudioUrl} title={t('yourRecording')} />
               <div className="flex gap-2">
-                <Button onClick={() => dispatch({ type: 'START_RECORDING_ORIGINAL' })} variant="secondary" className="w-full"><Mic className="mr-2" /> Record Again</Button>
-                <Button onClick={handleLockOriginal} className="w-full bg-primary text-primary-foreground hover:bg-primary/90"><Lock className="mr-2" /> Lock It</Button>
+                <Button onClick={handleRecordButton} variant="secondary" className="w-full"><Mic className="mr-2" /> {t('recordAgain')}</Button>
+                <Button onClick={handleLockOriginal} className="w-full bg-primary text-primary-foreground hover:bg-primary/90"><Lock className="mr-2" /> {t('lockIt')}</Button>
               </div>
             </div>
           )}
           
-          {state.phase === 'LOCKING_ORIGINAL' && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Locking & Reversing...</div>}
+          {state.phase === 'LOCKING_ORIGINAL' && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('lockingAndReversing')}</div>}
 
           {state.phase >= 'AWAITING_IMITATION' && state.originalAudioUrl && (
-            <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Original (Locked)</p>
-                <AudioPlayer src={state.originalAudioUrl} title="Original Recording" />
+            <div className="space-y-2 w-full">
+                <p className="text-sm font-medium text-muted-foreground">{t('originalLocked')}</p>
+                <AudioPlayer src={state.originalAudioUrl} title={t('originalRecording')} />
             </div>
           )}
         </PlayerPanel>
 
-        <PlayerPanel title="Player B: Imitator" isActive={isP2Turn || state.phase === 'GUESSING'}>
-           {state.phase < 'AWAITING_IMITATION' && <p className="text-center text-muted-foreground">Waiting for Player A to lock a song...</p>}
+        <PlayerPanel title={t('playerB')} isActive={isP2Turn || state.phase === 'GUESSING'}>
+           {state.phase < 'AWAITING_IMITATION' && <p className="text-center text-muted-foreground">{t('waitingForPlayerA')}</p>}
            
            {state.phase === 'AWAITING_IMITATION' && state.reversedOriginalAudioUrl && (
-             <div className="space-y-4">
-                <p className="text-sm font-medium text-center">Listen to the reversed audio and prepare your imitation.</p>
-                <AudioPlayer src={state.reversedOriginalAudioUrl} title="Reversed Original" />
-                <Button onClick={handleRecordButton} size="lg" className="w-full bg-accent hover:bg-accent/90"><Mic className="mr-2" /> Record Imitation</Button>
+             <div className="space-y-4 w-full">
+                <p className="text-sm font-medium text-center">{t('listenAndImitate')}</p>
+                <AudioPlayer src={state.reversedOriginalAudioUrl} title={t('reversedOriginal')} />
+                <Button onClick={handleRecordButton} size="lg" className="w-full bg-accent hover:bg-accent/90"><Mic className="mr-2" /> {t('recordImitation')}</Button>
              </div>
            )}
 
            {(state.phase === 'RECORDING_IMITATION' || (isRecording && isP2Turn)) && (
              <div className="flex w-full flex-col items-center gap-4">
               <Button onClick={stopRecording} variant="destructive" size="lg" className="w-full">
-                <Square className="mr-2" /> Stop Recording
+                <Square className="mr-2" /> {t('stopRecording')}
               </Button>
               <div className="font-mono text-lg text-primary">{recordingTime}s / {RECORDING_DURATION}s</div>
             </div>
            )}
 
           {state.phase === 'PREVIEW_IMITATION' && state.imitationAudioUrl && (
-            <div className="space-y-4">
-              <AudioPlayer src={state.imitationAudioUrl} title="Your Imitation" />
+            <div className="space-y-4 w-full">
+              <AudioPlayer src={state.imitationAudioUrl} title={t('yourImitation')} />
               <div className="flex gap-2">
-                <Button onClick={() => dispatch({ type: 'START_RECORDING_IMITATION' })} variant="secondary" className="w-full"><Mic className="mr-2" /> Record Again</Button>
-                <Button onClick={handleReverseImitation} className="w-full bg-primary text-primary-foreground hover:bg-primary/90"><Unlock className="mr-2" /> Reverse & Guess</Button>
+                <Button onClick={handleRecordButton} variant="secondary" className="w-full"><Mic className="mr-2" /> {t('recordAgain')}</Button>
+                <Button onClick={handleReverseImitation} className="w-full bg-primary text-primary-foreground hover:bg-primary/90"><Unlock className="mr-2" /> {t('reverseAndGuess')}</Button>
               </div>
             </div>
           )}
 
-          {state.phase === 'REVERSING_IMITATION' && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Reversing Imitation...</div>}
+          {state.phase === 'REVERSING_IMITATION' && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('reversingImitation')}</div>}
 
           {state.phase === 'GUESSING' && state.reversedImitationAudioUrl && (
-              <div className="space-y-4 text-center">
-                  <p className="font-medium">What song is it?</p>
-                  <AudioPlayer src={state.reversedImitationAudioUrl} title="Your Reversed Imitation" />
+              <div className="space-y-4 text-center w-full">
+                  <p className="font-medium">{t('whatSongIsIt')}</p>
+                  <AudioPlayer src={state.reversedImitationAudioUrl} title={t('yourReversedImitation')} />
                   <div className="flex gap-2 pt-4">
-                      <Button onClick={() => dispatch({type: 'ADD_POINT', payload: 'p1'})} variant="destructive" className="w-full"><ThumbsDown className="mr-2"/> Give Up</Button>
-                      <Button onClick={() => dispatch({type: 'ADD_POINT', payload: 'p2'})} variant="default" className="w-full bg-green-500 hover:bg-green-600"><ThumbsUp className="mr-2"/> I Got It!</Button>
+                      <Button onClick={() => dispatch({type: 'ADD_POINT', payload: 'p1'})} variant="destructive" className="w-full"><ThumbsDown className="mr-2"/> {t('giveUp')}</Button>
+                      <Button onClick={() => dispatch({type: 'ADD_POINT', payload: 'p2'})} variant="default" className="w-full bg-green-500 hover:bg-green-600"><ThumbsUp className="mr-2"/> {t('iGotIt')}</Button>
                   </div>
               </div>
           )}
@@ -408,12 +412,12 @@ export function GamePage() {
 
        {state.phase === 'REVEAL' && state.originalAudioUrl && (
           <div className="mt-8 w-full max-w-4xl">
-              <PlayerPanel title="The Big Reveal" isActive={true}>
-                  <div className="flex flex-col items-center gap-4">
-                    <p className="text-lg font-headline">The original song was...</p>
-                    <AudioPlayer src={state.originalAudioUrl} title="Original Recording" />
+              <PlayerPanel title={t('theBigReveal')} isActive={true}>
+                  <div className="flex flex-col items-center gap-4 w-full">
+                    <p className="text-lg font-headline">{t('originalSongWas')}</p>
+                    <AudioPlayer src={state.originalAudioUrl} title={t('originalRecording')} />
                     <Button onClick={() => dispatch({ type: 'NEXT_ROUND' })} size="lg">
-                      <RefreshCw className="mr-2" /> Next Round
+                      <RefreshCw className="mr-2" /> {t('nextRound')}
                     </Button>
                   </div>
               </PlayerPanel>
@@ -422,5 +426,3 @@ export function GamePage() {
     </div>
   );
 }
-
-    
