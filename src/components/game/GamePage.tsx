@@ -311,15 +311,15 @@ export function GamePage() {
 
   return (
     <div className="container mx-auto flex min-h-screen flex-col items-center justify-center p-4">
-      <header className="mb-8 text-center">
-        <div className="flex items-center justify-center gap-4">
-          <Logo className="h-16 w-16" />
-          <h1 className="font-headline text-5xl font-bold tracking-tighter sm:text-6xl md:text-7xl">Akisum</h1>
+      <header className="mb-6 text-center md:mb-8">
+        <div className="flex items-center justify-center gap-2 md:gap-4">
+          <Logo className="h-12 w-12 md:h-16 md:w-16" />
+          <h1 className="font-headline text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">Akisum</h1>
         </div>
-        <p className="mt-2 text-lg text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-2 text-md text-muted-foreground sm:text-lg">{t('subtitle')}</p>
       </header>
 
-      <div className="mb-8 flex w-full max-w-4xl items-center justify-between">
+      <div className="mb-6 flex w-full max-w-4xl flex-wrap items-center justify-center gap-4 md:mb-8 md:justify-between">
         <Scoreboard p1Score={state.p1Score} p2Score={state.p2Score} />
         <div className="flex items-center gap-2">
            <Button variant="outline" onClick={handleNewGame}>
@@ -330,7 +330,7 @@ export function GamePage() {
         </div>
       </div>
 
-      <div className="grid w-full max-w-4xl grid-cols-1 gap-8 md:grid-cols-2">
+      <div className="grid w-full max-w-4xl grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
         <PlayerPanel title={t('playerA')} isActive={isP1Turn}>
           {state.phase === 'IDLE' && <Button onClick={handleRecordButton} size="lg" className="w-full bg-accent hover:bg-accent/90"><Mic className="mr-2" /> {t('recordSongFragment')}</Button>}
           {state.phase === 'PERMISSION_DENIED' && <p className="text-destructive">{t('micPermissionDenied')}</p>}
@@ -348,7 +348,7 @@ export function GamePage() {
           {state.phase === 'PREVIEW_ORIGINAL' && state.originalAudioUrl && (
             <div className="space-y-4 w-full">
               <AudioPlayer src={state.originalAudioUrl} title={t('yourRecording')} />
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button onClick={handleRecordButton} variant="secondary" className="w-full"><Mic className="mr-2" /> {t('recordAgain')}</Button>
                 <Button onClick={handleLockOriginal} className="w-full bg-primary text-primary-foreground hover:bg-primary/90"><Lock className="mr-2" /> {t('lockIt')}</Button>
               </div>
@@ -388,7 +388,7 @@ export function GamePage() {
           {state.phase === 'PREVIEW_IMITATION' && state.imitationAudioUrl && (
             <div className="space-y-4 w-full">
               <AudioPlayer src={state.imitationAudioUrl} title={t('yourImitation')} />
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button onClick={handleRecordButton} variant="secondary" className="w-full"><Mic className="mr-2" /> {t('recordAgain')}</Button>
                 <Button onClick={handleReverseImitation} className="w-full bg-primary text-primary-foreground hover:bg-primary/90"><Unlock className="mr-2" /> {t('reverseAndGuess')}</Button>
               </div>
@@ -401,7 +401,7 @@ export function GamePage() {
               <div className="space-y-4 text-center w-full">
                   <p className="font-medium">{t('whatSongIsIt')}</p>
                   <AudioPlayer src={state.reversedImitationAudioUrl} title={t('yourReversedImitation')} />
-                  <div className="flex gap-2 pt-4">
+                  <div className="flex flex-col sm:flex-row gap-2 pt-4">
                       <Button onClick={() => dispatch({type: 'ADD_POINT', payload: 'p1'})} variant="destructive" className="w-full"><ThumbsDown className="mr-2"/> {t('giveUp')}</Button>
                       <Button onClick={() => dispatch({type: 'ADD_POINT', payload: 'p2'})} variant="default" className="w-full bg-green-500 hover:bg-green-600"><ThumbsUp className="mr-2"/> {t('iGotIt')}</Button>
                   </div>
