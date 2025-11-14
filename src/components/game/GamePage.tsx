@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useReducer, useRef, useState } from 'react';
@@ -31,9 +32,9 @@ interface GameState {
   p1Score: number;
   p2Score: number;
   originalAudioUrl: string | null;
-  reversedOriginalAudioUrl: string | null; // Mock
+  reversedOriginalAudioUrl: string | null;
   imitationAudioUrl: string | null;
-  reversedImitationAudioUrl: string | null; // Mock
+  reversedImitationAudioUrl: string | null;
 }
 
 type GameAction =
@@ -101,6 +102,77 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     default:
       return state;
   }
+}
+
+async function reverseAudio(audioUrl: string): Promise<string> {
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const response = await fetch(audioUrl);
+  const audioBlob = await response.blob();
+  const arrayBuffer = await audioBlob.arrayBuffer();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+  const reversedBuffer = audioContext.createBuffer(
+    audioBuffer.numberOfChannels,
+    audioBuffer.length,
+    audioBuffer.sampleRate
+  );
+
+  for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+    const channelData = audioBuffer.getChannelData(i);
+    const reversedChannelData = reversedBuffer.getChannelData(i);
+    reversedChannelData.set(channelData.slice().reverse());
+  }
+  
+  // This is a simplified way to get a WAV blob. A more robust solution might be needed.
+  const writeString = (view: DataView, offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  const floatTo16BitPCM = (output: DataView, offset: number, input: Float32Array) => {
+    for (let i = 0; i < input.length; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, input[i]));
+      output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+  };
+
+  const buffer = reversedBuffer;
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const numSamples = buffer.length;
+  const interleaved = new Float32Array(numSamples * numChannels);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < numSamples; i++) {
+      interleaved[i * numChannels + channel] = channelData[i];
+    }
+  }
+  
+  const dataView = new DataView(new ArrayBuffer(44 + interleaved.length * 2));
+  const format = 1; // PCM
+  const bitDepth = 16;
+  
+  writeString(dataView, 0, 'RIFF');
+  dataView.setUint32(4, 36 + interleaved.length * 2, true);
+  writeString(dataView, 8, 'WAVE');
+  writeString(dataView, 12, 'fmt ');
+  dataView.setUint32(16, 16, true);
+  dataView.setUint16(20, format, true);
+  dataView.setUint16(22, numChannels, true);
+  dataView.setUint32(24, sampleRate, true);
+  dataView.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
+  dataView.setUint16(32, numChannels * (bitDepth / 8), true);
+  dataView.setUint16(34, bitDepth, true);
+  writeString(dataView, 36, 'data');
+  dataView.setUint32(40, interleaved.length * 2, true);
+  
+  floatTo16BitPCM(dataView, 44, interleaved);
+  
+  const blob = new Blob([dataView], { type: 'audio/wav' });
+
+  return URL.createObjectURL(blob);
 }
 
 export function GamePage() {
@@ -192,24 +264,32 @@ export function GamePage() {
     setIsRecording(false);
   };
   
-  const handleLockOriginal = () => {
+  const handleLockOriginal = async () => {
     dispatch({ type: 'LOCK_ORIGINAL' });
-    // Simulate backend processing
-    setTimeout(() => {
-      if (state.originalAudioUrl) {
-        dispatch({ type: 'REVERSE_ORIGINAL_SUCCESS', payload: state.originalAudioUrl });
+    if (state.originalAudioUrl) {
+      try {
+        const reversedUrl = await reverseAudio(state.originalAudioUrl);
+        dispatch({ type: 'REVERSE_ORIGINAL_SUCCESS', payload: reversedUrl });
+      } catch (error) {
+        console.error("Failed to reverse audio:", error);
+        toast({ title: "Error", description: "Could not reverse audio."});
+        dispatch({ type: 'NEXT_ROUND' }); // Reset on error
       }
-    }, 1500);
+    }
   }
   
-  const handleReverseImitation = () => {
+  const handleReverseImitation = async () => {
     dispatch({ type: 'REVERSE_IMITATION' });
-     // Simulate backend processing
-    setTimeout(() => {
-      if (state.imitationAudioUrl) {
-        dispatch({ type: 'REVERSE_IMITATION_SUCCESS', payload: state.imitationAudioUrl });
+    if (state.imitationAudioUrl) {
+       try {
+        const reversedUrl = await reverseAudio(state.imitationAudioUrl);
+        dispatch({ type: 'REVERSE_IMITATION_SUCCESS', payload: reversedUrl });
+      } catch (error) {
+        console.error("Failed to reverse audio:", error);
+        toast({ title: "Error", description: "Could not reverse audio."});
+        dispatch({ type: 'NEXT_ROUND' }); // Reset on error
       }
-    }, 1500);
+    }
   }
   
   const handleRecordButton = () => {
@@ -342,3 +422,5 @@ export function GamePage() {
     </div>
   );
 }
+
+    
