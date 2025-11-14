@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { I18nProvider } from '@/hooks/use-i18n';
 
 export const metadata: Metadata = {
-  title: 'Akisum Duet',
+  title: 'Akisum',
   description: 'The reverse music guessing game.',
 };
 

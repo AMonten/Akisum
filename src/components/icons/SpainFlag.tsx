@@ -1,20 +1,26 @@
-import { SVGProps } from 'react';
+import { SVGProps } from "react";
 
 export function SpainFlag(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20" {...props}>
-      <path fill="#c60b1e" d="M0 0h30v20H0z" />
-      <path fill="#ffc400" d="M0 5h30v10H0z" />
-      <path
-        fill="#c60b1e"
-        d="M7.5 11.25V10h.75v-.75H9v.75h.75V10h.75v1.25H9v.75H8.25v-.75zm3.75 0V10h.75v-.75H12.75v.75H13.5V10h.75v1.25h-1.5v.75h-.75v-.75z"
-      />
-      <path fill="#ffc400" d="M9 11.25h.75v.75H9z" />
-      <path fill="#ad1519" d="M8.25 10v.75H9V10zm3.75.75H12.75V10h-.75z" />
-      <path
-        fill="#c60b1e"
-        d="M9.375 8.5h.75v.75h-.75zm0 1.5h.75v.75h-.75z"
-      />
+    <svg
+      viewBox="0 0 190 100"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      {/* Franjas */}
+      <rect width="190" height="100" fill="#c60b1e" />
+      <rect y="25" width="190" height="50" fill="#ffc400" />
+
+      {/* Escudo minimalista (estilo consistente con el tuyo) */}
+      <g transform="translate(35, 38) scale(1.6)">
+        <rect x="0" y="0" width="12" height="16" fill="#c60b1e" rx="1.5" />
+        <rect x="3" y="4" width="6" height="8" fill="#ffc400" />
+
+        {/* Básico minimal */}
+        <rect x="2" y="2" width="3" height="2" fill="#ad1519" />
+        <rect x="7" y="2" width="3" height="2" fill="#ad1519" />
+        <rect x="4.5" y="8" width="3" height="2" fill="#c60b1e" />
+      </g>
     </svg>
   );
 }

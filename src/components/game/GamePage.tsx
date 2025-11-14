@@ -314,7 +314,7 @@ export function GamePage() {
       <header className="mb-8 text-center">
         <div className="flex items-center justify-center gap-4">
           <Logo className="h-16 w-16" />
-          <h1 className="font-headline text-5xl font-bold tracking-tighter sm:text-6xl md:text-7xl">Akisum Duet</h1>
+          <h1 className="font-headline text-5xl font-bold tracking-tighter sm:text-6xl md:text-7xl">Akisum</h1>
         </div>
         <p className="mt-2 text-lg text-muted-foreground">{t('subtitle')}</p>
       </header>
