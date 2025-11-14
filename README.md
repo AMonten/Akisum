@@ -1,5 +1,5 @@
-# Firebase Studio
+# Akisum Duet – Reverse Music Guessing Game
 
-This is a NextJS starter in Firebase Studio.
+This is a Next.js application for Akisum Duet, a competitive audio-based game where one player records a short music fragment, the system reverses it, and another player must imitate the reversed audio to guess the original song.
 
-To get started, take a look at src/app/page.tsx.
+This project is built with Next.js, TypeScript, Tailwind CSS, and ShadCN UI. It utilizes the Web Audio API for in-browser audio recording.

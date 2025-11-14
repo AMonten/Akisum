@@ -1,3 +1,9 @@
+import { GamePage } from "@/components/game/GamePage";
+
 export default function Home() {
-  return <></>;
+  return (
+    <main>
+      <GamePage />
+    </main>
+  );
 }
