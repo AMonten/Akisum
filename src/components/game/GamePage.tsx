@@ -33,6 +33,7 @@ interface GameState {
   phase: GamePhase;
   p1Score: number;
   p2Score: number;
+  challenger: 'p1' | 'p2';
   originalAudioUrl: string | null;
   reversedOriginalAudioUrl: string | null;
   imitationAudioUrl: string | null;
@@ -57,6 +58,7 @@ const initialState: GameState = {
   phase: 'IDLE',
   p1Score: 0,
   p2Score: 0,
+  challenger: 'p1',
   originalAudioUrl: null,
   reversedOriginalAudioUrl: null,
   imitationAudioUrl: null,
@@ -97,6 +99,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         ...initialState,
         p1Score: state.p1Score,
         p2Score: state.p2Score,
+        challenger: state.challenger === 'p1' ? 'p2' : 'p1',
       };
     default:
       return state;
@@ -186,14 +189,22 @@ export function GamePage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const isP1Turn = state.phase === 'IDLE' || state.phase === 'RECORDING_ORIGINAL' || state.phase === 'PREVIEW_ORIGINAL' || state.phase === 'REQUESTING_PERMISSION' || state.phase === 'PERMISSION_DENIED';
-  const isP2Turn = state.phase === 'AWAITING_IMITATION' || state.phase === 'RECORDING_IMITATION' || state.phase === 'PREVIEW_IMITATION';
+  const isChallengerTurn = state.phase < 'AWAITING_IMITATION';
+  const isImitatorTurn = !isChallengerTurn && state.phase < 'REVEAL';
+
+  const isP1Challenger = state.challenger === 'p1';
+
+  const p1Role = isP1Challenger ? 'challenger' : 'imitator';
+  const p2Role = isP1Challenger ? 'imitator' : 'challenger';
+
+  const isP1Active = (p1Role === 'challenger' && isChallengerTurn) || (p1Role === 'imitator' && isImitatorTurn) || state.phase === 'GUESSING' && p1Role === 'imitator';
+  const isP2Active = (p2Role === 'challenger' && isChallengerTurn) || (p2Role === 'imitator' && isImitatorTurn) || state.phase === 'GUESSING' && p2Role === 'imitator';
 
   const requestMicrophone = async () => {
-    if (state.phase !== 'IDLE' && state.phase !== 'AWAITING_IMITATION' && state.phase !== 'PREVIEW_IMITATION' && state.phase !== 'PREVIEW_ORIGINAL') return;
-    
+    if (state.phase !== 'IDLE' && state.phase !== 'AWAITING_IMITATION') return;
+
     if (state.phase === 'IDLE') {
-        dispatch({ type: 'START_GAME' });
+      dispatch({ type: 'START_GAME' });
     }
 
     try {
@@ -201,9 +212,10 @@ export function GamePage() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
       }
-      if (isP1Turn) {
+
+      if (state.phase === 'IDLE' || state.phase === 'PREVIEW_ORIGINAL') {
         dispatch({ type: 'START_RECORDING_ORIGINAL' });
-      } else if (isP2Turn) {
+      } else if (state.phase === 'AWAITING_IMITATION' || state.phase === 'PREVIEW_IMITATION') {
         dispatch({ type: 'START_RECORDING_IMITATION' });
       }
     } catch (error) {
@@ -216,6 +228,7 @@ export function GamePage() {
       dispatch({ type: 'PERMISSION_DENIED' });
     }
   };
+
 
   useEffect(() => {
     if (state.phase === 'RECORDING_ORIGINAL' || state.phase === 'RECORDING_IMITATION') {
@@ -309,6 +322,110 @@ export function GamePage() {
     dispatch({type: 'NEXT_ROUND'});
   }
 
+  const handleGuess = (correct: boolean) => {
+    const imitator = isP1Challenger ? 'p2' : 'p1';
+    const challenger = isP1Challenger ? 'p1' : 'p2';
+    dispatch({ type: 'ADD_POINT', payload: correct ? imitator : challenger });
+  };
+  
+  const p1Title = `${t('playerA')} (${p1Role === 'challenger' ? t('challenger') : t('imitator')})`;
+  const p2Title = `${t('playerB')} (${p2Role === 'challenger' ? t('challenger') : t('imitator')})`;
+
+  const ChallengerPanel = (
+    <PlayerPanel title={isP1Challenger ? p1Title : p2Title} isActive={isP1Active || isP2Active}>
+      {state.phase === 'IDLE' && <Button onClick={handleRecordButton} size="lg" className="w-full bg-accent hover:bg-accent/90"><Mic className="mr-2" /> {t('recordSongFragment')}</Button>}
+      {state.phase === 'PERMISSION_DENIED' && <p className="text-destructive">{t('micPermissionDenied')}</p>}
+      {state.phase === 'REQUESTING_PERMISSION' && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('requestingMic')}</div>}
+
+      {state.phase === 'RECORDING_ORIGINAL' && (
+         <div className="flex w-full flex-col items-center gap-4">
+          <Button onClick={stopRecording} variant="destructive" size="lg" className="w-full">
+            <Square className="mr-2" /> {t('stopRecording')}
+          </Button>
+          <div className="font-mono text-lg text-primary">{recordingTime}s / {RECORDING_DURATION}s</div>
+        </div>
+      )}
+
+      {state.phase === 'PREVIEW_ORIGINAL' && state.originalAudioUrl && (
+        <div className="space-y-4 w-full">
+          <AudioPlayer src={state.originalAudioUrl} title={t('yourRecording')} />
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={handleRecordButton} variant="secondary" className="w-full"><Mic className="mr-2" /> {t('recordAgain')}</Button>
+            <Button onClick={handleLockOriginal} className="w-full bg-primary text-primary-foreground hover:bg-primary/90"><Lock className="mr-2" /> {t('lockIt')}</Button>
+          </div>
+        </div>
+      )}
+      
+      {state.phase === 'LOCKING_ORIGINAL' && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('lockingAndReversing')}</div>}
+      
+      {state.phase > 'LOCKING_ORIGINAL' && state.phase < 'REVEAL' && (
+         <div className="space-y-2 w-full text-center flex flex-col items-center">
+            <Music className="w-10 h-10 text-muted-foreground/50" />
+            <p className="text-sm font-medium text-muted-foreground">{t('originalLocked')}</p>
+        </div>
+      )}
+
+      {state.phase === 'REVEAL' && state.originalAudioUrl && (
+         <div className="flex flex-col items-center gap-4 w-full">
+            <p className="text-lg font-headline">{t('originalSongWas')}</p>
+            <AudioPlayer src={state.originalAudioUrl} title={t('originalRecording')} />
+        </div>
+      )}
+    </PlayerPanel>
+  );
+
+  const ImitatorPanel = (
+     <PlayerPanel title={isP1Challenger ? p2Title : p1Title} isActive={isP1Active || isP2Active}>
+       {state.phase < 'AWAITING_IMITATION' && <p className="text-center text-muted-foreground">{t('waitingForChallenger')}</p>}
+       
+       {state.phase === 'AWAITING_IMITATION' && state.reversedOriginalAudioUrl && (
+         <div className="space-y-4 w-full">
+            <p className="text-sm font-medium text-center">{t('listenAndImitate')}</p>
+            <AudioPlayer src={state.reversedOriginalAudioUrl} title={t('reversedOriginal')} />
+            <Button onClick={handleRecordButton} size="lg" className="w-full bg-accent hover:bg-accent/90"><Mic className="mr-2" /> {t('recordImitation')}</Button>
+         </div>
+       )}
+
+       {state.phase === 'RECORDING_IMITATION' && (
+         <div className="flex w-full flex-col items-center gap-4">
+          <Button onClick={stopRecording} variant="destructive" size="lg" className="w-full">
+            <Square className="mr-2" /> {t('stopRecording')}
+          </Button>
+          <div className="font-mono text-lg text-primary">{recordingTime}s / {RECORDING_DURATION}s</div>
+        </div>
+       )}
+
+      {state.phase === 'PREVIEW_IMITATION' && state.imitationAudioUrl && (
+        <div className="space-y-4 w-full">
+          <AudioPlayer src={state.imitationAudioUrl} title={t('yourImitation')} />
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={handleRecordButton} variant="secondary" className="w-full"><Mic className="mr-2" /> {t('recordAgain')}</Button>
+            <Button onClick={handleReverseImitation} className="w-full bg-primary text-primary-foreground hover:bg-primary/90"><Unlock className="mr-2" /> {t('reverseAndGuess')}</Button>
+          </div>
+        </div>
+      )}
+
+      {state.phase === 'REVERSING_IMITATION' && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('reversingImitation')}</div>}
+
+      {state.phase === 'GUESSING' && state.reversedImitationAudioUrl && (
+          <div className="space-y-4 text-center w-full">
+              <p className="font-medium">{t('whatSongIsIt')}</p>
+              <AudioPlayer src={state.reversedImitationAudioUrl} title={t('yourReversedImitation')} />
+              <div className="flex flex-col sm:flex-row gap-2 pt-4">
+                  <Button onClick={() => handleGuess(false)} variant="destructive" className="w-full"><ThumbsDown className="mr-2"/> {t('giveUp')}</Button>
+                  <Button onClick={() => handleGuess(true)} variant="default" className="w-full bg-green-500 hover:bg-green-600"><ThumbsUp className="mr-2"/> {t('iGotIt')}</Button>
+              </div>
+          </div>
+      )}
+      {state.phase === 'REVEAL' && !state.originalAudioUrl && (
+         <div className="space-y-2 w-full text-center flex flex-col items-center">
+            <Music className="w-10 h-10 text-muted-foreground/50" />
+            <p className="text-sm font-medium text-muted-foreground">{t('waitingForNextRound')}</p>
+        </div>
+      )}
+    </PlayerPanel>
+  );
+
   return (
     <div className="container mx-auto flex min-h-screen flex-col items-center justify-center p-4">
       <header className="mb-6 text-center md:mb-8">
@@ -331,98 +448,15 @@ export function GamePage() {
       </div>
 
       <div className="grid w-full max-w-4xl grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
-        <PlayerPanel title={t('playerA')} isActive={isP1Turn}>
-          {state.phase === 'IDLE' && <Button onClick={handleRecordButton} size="lg" className="w-full bg-accent hover:bg-accent/90"><Mic className="mr-2" /> {t('recordSongFragment')}</Button>}
-          {state.phase === 'PERMISSION_DENIED' && <p className="text-destructive">{t('micPermissionDenied')}</p>}
-          {(state.phase === 'REQUESTING_PERMISSION' && isP1Turn) && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('requestingMic')}</div>}
-
-          {(state.phase === 'RECORDING_ORIGINAL' || (isRecording && isP1Turn)) && (
-             <div className="flex w-full flex-col items-center gap-4">
-              <Button onClick={stopRecording} variant="destructive" size="lg" className="w-full">
-                <Square className="mr-2" /> {t('stopRecording')}
-              </Button>
-              <div className="font-mono text-lg text-primary">{recordingTime}s / {RECORDING_DURATION}s</div>
-            </div>
-          )}
-
-          {state.phase === 'PREVIEW_ORIGINAL' && state.originalAudioUrl && (
-            <div className="space-y-4 w-full">
-              <AudioPlayer src={state.originalAudioUrl} title={t('yourRecording')} />
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button onClick={handleRecordButton} variant="secondary" className="w-full"><Mic className="mr-2" /> {t('recordAgain')}</Button>
-                <Button onClick={handleLockOriginal} className="w-full bg-primary text-primary-foreground hover:bg-primary/90"><Lock className="mr-2" /> {t('lockIt')}</Button>
-              </div>
-            </div>
-          )}
-          
-          {state.phase === 'LOCKING_ORIGINAL' && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('lockingAndReversing')}</div>}
-          
-          {state.phase >= 'AWAITING_IMITATION' && state.phase !== 'REVEAL' && (
-             <div className="space-y-2 w-full text-center flex flex-col items-center">
-                <Music className="w-10 h-10 text-muted-foreground/50" />
-                <p className="text-sm font-medium text-muted-foreground">{t('originalLocked')}</p>
-            </div>
-          )}
-
-          {state.phase === 'REVEAL' && state.originalAudioUrl && (
-             <div className="flex flex-col items-center gap-4 w-full">
-                <p className="text-lg font-headline">{t('originalSongWas')}</p>
-                <AudioPlayer src={state.originalAudioUrl} title={t('originalRecording')} />
-            </div>
-          )}
-        </PlayerPanel>
-
-        <PlayerPanel title={t('playerB')} isActive={isP2Turn || state.phase === 'GUESSING'}>
-           {state.phase < 'AWAITING_IMITATION' && <p className="text-center text-muted-foreground">{t('waitingForPlayerA')}</p>}
-           
-           {state.phase === 'AWAITING_IMITATION' && state.reversedOriginalAudioUrl && (
-             <div className="space-y-4 w-full">
-                <p className="text-sm font-medium text-center">{t('listenAndImitate')}</p>
-                <AudioPlayer src={state.reversedOriginalAudioUrl} title={t('reversedOriginal')} />
-                <Button onClick={handleRecordButton} size="lg" className="w-full bg-accent hover:bg-accent/90"><Mic className="mr-2" /> {t('recordImitation')}</Button>
-             </div>
-           )}
-
-           {(state.phase === 'RECORDING_IMITATION' || (isRecording && isP2Turn)) && (
-             <div className="flex w-full flex-col items-center gap-4">
-              <Button onClick={stopRecording} variant="destructive" size="lg" className="w-full">
-                <Square className="mr-2" /> {t('stopRecording')}
-              </Button>
-              <div className="font-mono text-lg text-primary">{recordingTime}s / {RECORDING_DURATION}s</div>
-            </div>
-           )}
-
-          {state.phase === 'PREVIEW_IMITATION' && state.imitationAudioUrl && (
-            <div className="space-y-4 w-full">
-              <AudioPlayer src={state.imitationAudioUrl} title={t('yourImitation')} />
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button onClick={handleRecordButton} variant="secondary" className="w-full"><Mic className="mr-2" /> {t('recordAgain')}</Button>
-                <Button onClick={handleReverseImitation} className="w-full bg-primary text-primary-foreground hover:bg-primary/90"><Unlock className="mr-2" /> {t('reverseAndGuess')}</Button>
-              </div>
-            </div>
-          )}
-
-          {state.phase === 'REVERSING_IMITATION' && <div className="flex items-center justify-center"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('reversingImitation')}</div>}
-
-          {state.phase === 'GUESSING' && state.reversedImitationAudioUrl && (
-              <div className="space-y-4 text-center w-full">
-                  <p className="font-medium">{t('whatSongIsIt')}</p>
-                  <AudioPlayer src={state.reversedImitationAudioUrl} title={t('yourReversedImitation')} />
-                  <div className="flex flex-col sm:flex-row gap-2 pt-4">
-                      <Button onClick={() => dispatch({type: 'ADD_POINT', payload: 'p1'})} variant="destructive" className="w-full"><ThumbsDown className="mr-2"/> {t('giveUp')}</Button>
-                      <Button onClick={() => dispatch({type: 'ADD_POINT', payload: 'p2'})} variant="default" className="w-full bg-green-500 hover:bg-green-600"><ThumbsUp className="mr-2"/> {t('iGotIt')}</Button>
-                  </div>
-              </div>
-          )}
-        </PlayerPanel>
+        {isP1Challenger ? ChallengerPanel : ImitatorPanel}
+        {isP1Challenger ? ImitatorPanel : ChallengerPanel}
       </div>
 
        {state.phase === 'REVEAL' && (
           <div className="mt-8 w-full max-w-4xl">
               <PlayerPanel title={t('theBigReveal')} isActive={true}>
                   <div className="flex flex-col items-center gap-4 w-full">
-                    {/* The original audio is now shown in Player A's panel */}
-                    <p className="text-lg font-headline">{t('theBigReveal')}</p>
+                    <p className="text-lg font-headline">{state.p1Score > state.p2Score ? 'Player A wins!' : 'Player B wins!'}</p>
                     <Button onClick={() => dispatch({ type: 'NEXT_ROUND' })} size="lg">
                       <RefreshCw className="mr-2" /> {t('nextRound')}
                     </Button>

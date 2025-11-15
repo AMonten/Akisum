@@ -1,9 +1,12 @@
+
 export const translations = {
   en: {
     subtitle: 'The Reverse Music Guessing Game',
     newGame: 'New Game',
-    playerA: 'Player A: Challenger',
-    playerB: 'Player B: Imitator',
+    playerA: 'Player A',
+    playerB: 'Player B',
+    challenger: 'Challenger',
+    imitator: 'Imitator',
     recordSongFragment: 'Record Song Fragment',
     micPermissionDenied: 'Microphone access was denied. Please enable it to play.',
     requestingMic: 'Requesting mic...',
@@ -14,7 +17,7 @@ export const translations = {
     lockingAndReversing: 'Locking & Reversing...',
     originalLocked: 'Original (Locked)',
     originalRecording: 'Original Recording',
-    waitingForPlayerA: 'Waiting for Player A to lock a song...',
+    waitingForChallenger: 'Waiting for the Challenger to lock a song...',
     listenAndImitate: 'Listen to the reversed audio and prepare your imitation.',
     reversedOriginal: 'Reversed Original',
     recordImitation: 'Record Imitation',
@@ -39,12 +42,15 @@ export const translations = {
     repetitions: 'Repetitions',
     repetitionsDescription: 'Max playbacks of reversed audio for the imitator.',
     gameMode: 'Game Mode',
+    waitingForNextRound: 'Waiting for the next round...',
   },
   es: {
     subtitle: 'El juego de adivinar música al revés',
     newGame: 'Nuevo Juego',
-    playerA: 'Jugador A: Retador',
-    playerB: 'Jugador B: Imitador',
+    playerA: 'Jugador A',
+    playerB: 'Jugador B',
+    challenger: 'Retador',
+    imitator: 'Imitador',
     recordSongFragment: 'Grabar Fragmento de Canción',
     micPermissionDenied: 'Se denegó el acceso al micrófono. Por favor, actívalo para jugar.',
     requestingMic: 'Solicitando micrófono...',
@@ -55,7 +61,7 @@ export const translations = {
     lockingAndReversing: 'Bloqueando y revirtiendo...',
     originalLocked: 'Original (Bloqueado)',
     originalRecording: 'Grabación Original',
-    waitingForPlayerA: 'Esperando a que el Jugador A bloquee una canción...',
+    waitingForChallenger: 'Esperando a que el Retador bloquee una canción...',
     listenAndImitate: 'Escucha el audio invertido y prepara tu imitación.',
     reversedOriginal: 'Original Invertido',
     recordImitation: 'Grabar Imitación',
@@ -80,6 +86,7 @@ export const translations = {
     repetitions: 'Repeticiones',
     repetitionsDescription: 'Máximas reproducciones del audio invertido para el imitador.',
     gameMode: 'Modo de Juego',
+    waitingForNextRound: 'Esperando la siguiente ronda...',
   },
 };
 
