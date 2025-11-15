@@ -186,7 +186,7 @@ export function GamePage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const isP1Turn = state.phase === 'IDLE' || state.phase === 'RECORDING_ORIGINAL' || state.phase === 'PREVIEW_ORIGINAL' || state.phase === 'REQUESTING_PERMISSION';
+  const isP1Turn = state.phase === 'IDLE' || state.phase === 'RECORDING_ORIGINAL' || state.phase === 'PREVIEW_ORIGINAL' || state.phase === 'REQUESTING_PERMISSION' || state.phase === 'PERMISSION_DENIED';
   const isP2Turn = state.phase === 'AWAITING_IMITATION' || state.phase === 'RECORDING_IMITATION' || state.phase === 'PREVIEW_IMITATION';
 
   const requestMicrophone = async () => {
@@ -426,5 +426,7 @@ export function GamePage() {
     </div>
   );
 }
+
+    
 
     
