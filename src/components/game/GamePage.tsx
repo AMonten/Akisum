@@ -363,6 +363,13 @@ export function GamePage() {
                 <p className="text-sm font-medium text-muted-foreground">{t('originalLocked')}</p>
             </div>
           )}
+          
+          {state.phase === 'REVEAL' && state.originalAudioUrl && (
+             <div className="flex flex-col items-center gap-4 w-full">
+                <p className="text-lg font-headline">{t('originalSongWas')}</p>
+                <AudioPlayer src={state.originalAudioUrl} title={t('originalRecording')} />
+            </div>
+          )}
         </PlayerPanel>
 
         <PlayerPanel title={t('playerB')} isActive={isP2Turn || state.phase === 'GUESSING'}>
@@ -410,12 +417,12 @@ export function GamePage() {
         </PlayerPanel>
       </div>
 
-       {state.phase === 'REVEAL' && state.originalAudioUrl && (
+       {state.phase === 'REVEAL' && (
           <div className="mt-8 w-full max-w-4xl">
               <PlayerPanel title={t('theBigReveal')} isActive={true}>
                   <div className="flex flex-col items-center gap-4 w-full">
-                    <p className="text-lg font-headline">{t('originalSongWas')}</p>
-                    <AudioPlayer src={state.originalAudioUrl} title={t('originalRecording')} />
+                    {/* The original audio is now shown in Player A's panel */}
+                    <p className="text-lg font-headline">{t('theBigReveal')}</p>
                     <Button onClick={() => dispatch({ type: 'NEXT_ROUND' })} size="lg">
                       <RefreshCw className="mr-2" /> {t('nextRound')}
                     </Button>
@@ -426,7 +433,3 @@ export function GamePage() {
     </div>
   );
 }
-
-    
-
-    
